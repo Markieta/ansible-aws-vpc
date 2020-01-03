@@ -1,5 +1,5 @@
 ---
-- hosts: networks
+- hosts: sandwich_launchers
   connection: local
   gather_facts: no
   roles:
