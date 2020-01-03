@@ -104,3 +104,4 @@
       when: rt_natgw is defined
   when: vpc_name is defined and vpc_cidr_block is defined
   run_once: true
+...
