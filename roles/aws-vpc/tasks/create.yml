@@ -1,0 +1,106 @@
+---
+- block:
+    - name: Create VPC
+      ec2_vpc_net:
+        name: "{{ vpc_name }}"
+        cidr_block: "{{ vpc_cidr_block }}"
+        region: "{{ vpc_aws_region }}"
+      register: vpc_output
+
+    - name: Create IGW
+      ec2_vpc_igw:
+        vpc_id: "{{ vpc_output.vpc.id }}"
+        region: "{{ vpc_aws_region }}"
+      register: igw_output
+
+    - block:
+        - name: Create Subnets
+          ec2_vpc_subnet:
+            vpc_id: "{{ vpc_output.vpc.id }}"
+            cidr: "{{ item.sub_cidr }}"
+            region: "{{ vpc_aws_region }}"
+            az: "{{ item.sub_az }}"
+            tags:
+                Name: "{{ env_tag }}-{{ group_names[0] }}-subnet-{{ item.name }}"
+                env: "{{ env_tag }}"
+                service: "{{ service_tag | default(omit) }}"
+                stack: "{{ stack_tag | default(omit) }}"
+                owner: "{{ owner_tag | default(omit) }}"
+                project: "{{ project_tag | default(omit) }}"
+          with_items: "{{ subnet }}"
+          register: subnet_output
+
+        - name: Create NAT Gateways
+          ec2_vpc_nat_gateway:
+            subnet_id: "{{ item.subnet.id }}"
+            region: "{{ vpc_aws_region }}"
+            wait: yes
+            if_exist_do_not_create: yes
+          with_items: "{{ subnet_output.results }}"
+          register: nat_output
+
+        - name: Create tags for NAT Gateways
+          ec2_tag:
+              resource: "{{ item.nat_gateway_id }}"
+              region: "{{ vpc_aws_region }}"
+              tags:
+                Name: "{{ env_tag }}-{{ group_names[0] }}-nat-{{ item.item.item.name}}"
+                env: "{{ env_tag }}"
+                service: "{{ service_tag | default(omit) }}"
+                stack: "{{ stack_tag | default(omit)}}"
+                owner: "{{ owner_tag | default(omit) }}"
+                project: "{{ project_tag | default(omit) }}"
+          with_items: "{{ nat_output.results }}"
+      when: subnet is defined
+
+    - block:
+        - name: Create IGW Route Tables
+          ec2_vpc_route_table:
+            vpc_id: "{{ vpc_output.vpc.id }}"
+            region: "{{ vpc_aws_region }}"
+            subnets: "{{ env_tag }}-{{ group_names[0] }}-subnet-{{ item.rt_sub }}"
+            routes:
+              - dest: "{{ item.rt_routes.dest }}"
+                gateway_id: "{{ igw_output.gateway_id }}"
+            tags:
+                Name: "{{ env_tag }}-{{ group_names[0] }}-rt-{{ item.name }}"
+                env: "{{ env_tag }}"
+                service: "{{ service_tag | default(omit) }}"
+                stack: "{{ stack_tag | default(omit) }}"
+                owner: "{{ owner_tag | default(omit) }}"
+                project: "{{ project_tag | default(omit) }}"
+          with_items: "{{ rt_igw }}"
+          register: rt_output
+      when: rt_igw is defined
+
+    - block:
+        - name: Query NAT Gateways
+          ec2_vpc_nat_gateway_facts:
+            region: "{{ vpc_aws_region }}"
+            filters:
+              tag:Name: "{{ env_tag }}-{{ group_names[0] }}-nat-{{ item.nat_gateway }}"
+              state: available 
+          with_items: "{{ rt_natgw }}"
+          register: natgw_output
+
+        - name: Create NAT Gateway Route Tables
+          ec2_vpc_route_table:
+            vpc_id: "{{ vpc_output.vpc.id }}"
+            region: "{{ vpc_aws_region }}"
+            subnets: "{{ env_tag }}-{{ group_names[0] }}-subnet-{{ item[0].rt_sub }}"
+            routes:
+              - dest: "{{ item[0].dest }}"
+                nat_gateway_id: "{{ item[1].result[0].nat_gateway_id }}"
+            tags:
+              Name: "{{ group_names[0] }}-{{ env_tag }}-rt-{{ item[0].name }}"
+              env: "{{ env_tag }}"
+              service: "{{ service_tag | default(omit) }}"
+              stack: "{{ stack_tag | default(omit) }}"
+              owner: "{{ owner_tag | default(omit) }}"
+              project: "{{ project_tag | default(omit) }}"
+          with_together:
+            - "{{ rt_natgw }}"
+            - "{{ natgw_output.results }}"
+      when: rt_natgw is defined
+  when: vpc_name is defined and vpc_cidr_block is defined
+  run_once: true
