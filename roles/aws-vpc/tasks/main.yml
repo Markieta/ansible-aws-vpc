@@ -1,0 +1,9 @@
+---
+- import_tasks: create.yml
+  delegate_to: localhost
+  when: activity is search("create")
+
+- import_tasks: destroy.yml
+  delegate_to: localhost
+  when: activity is search("destroy")
+...
