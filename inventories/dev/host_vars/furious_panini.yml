@@ -1,3 +1,44 @@
 ---
+stack_tag: "BLT"
+owner_tag: "Massimo"
+project_tag: "furious_panini"
 
+priv_sub1: "priv_sub1"
+priv_sub2: "priv_sub2"
+pub_sub1: "pub_sub1"
+pub_sub2: "pub_sub2"
+
+subnet:
+  - name: "{{ pub_sub1 }}"
+    sub_cidr: 172.17.201.0/24
+    sub_az: us-west-2a
+  - name: "{{ pub_sub2 }}"
+    sub_cidr: 172.17.202.0/24
+    sub_az: us-west-2b
+  - name: "{{ priv_sub1 }}"
+    sub_cidr: 172.17.34.0/23
+    sub_az: us-west-2a
+  - name: "{{ priv_sub2 }}"
+    sub_cidr: 172.17.76.0/23
+    sub_az: us-west-2b
+
+rt_igw:
+  - name: "{{ pub_sub1 }}"
+    rt_sub: "{{ pub_sub1 }}"
+    rt_routes:
+      dest: 0.0.0.0/0
+  - name: "{{ pub_sub2 }}"
+    rt_sub: "{{ pub_sub2 }}"
+    rt_routes:
+      dest: 0.0.0.0/0
+
+rt_natgw:
+  - name: "{{ priv_sub1 }}"
+    rt_sub: "{{ priv_sub1 }}"
+    dest: 0.0.0.0/0
+    nat_gateway: "{{ pub_sub1 }}"
+  - name: "{{ priv_sub2 }}"
+    rt_sub: "{{ priv_sub2 }}"
+    dest: 0.0.0.0/0
+    nat_gateway: "{{ pub_sub2 }}"
 ...
