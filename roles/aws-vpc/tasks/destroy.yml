@@ -1,0 +1,105 @@
+---
+- name: Query VPC
+  ec2_vpc_net_facts:
+    filters:
+      "tag:Name": "{{ vpc_name }}"
+    region: "{{ vpc_aws_region }}"
+  register: vpc_output
+
+- block:
+    - name: Query NACLs
+      ec2_vpc_nacl_facts:
+        region: "{{ vpc_aws_region }}"
+        filters:
+          vpc-id:
+            - "{{ vpc_output.vpcs[0].id }}"
+      register: nacl_output
+
+    - name: Destroy all NACLs
+      ec2_vpc_nacl:
+        nacl_id: "{{ item.nacl_id }}"
+        vpc_id: "{{ vpc_output.vpcs[0].id }}"
+        region: "{{ vpc_aws_region }}"
+        state: absent
+      with_items: "{{ nacl_output.nacls }}"
+      when: not item.is_default
+
+    - block:
+        - name: Query NAT Gateways
+          ec2_vpc_nat_gateway_facts:
+            region: "{{ vpc_aws_region }}"
+            filters:
+              tag:Name: "{{ env_tag }}-{{ group_names[0] }}-nat-{{ item.name }}"
+              state: available 
+          with_items: "{{ subnet }}"
+          register: natgw_output
+
+        - name: Destroy NAT Gateways
+          ec2_vpc_nat_gateway:
+            nat_gateway_id: "{{ item.1.nat_gateway_id }}"
+            region: "{{ vpc_aws_region }}"
+            state: absent
+            release_eip: true
+            wait: true
+          with_subelements:
+            - "{{ natgw_output.results }}"
+            - result
+
+        - name: Destroy Subnets
+          ec2_vpc_subnet:
+            cidr: "{{ item.sub_cidr }}"
+            vpc_id: "{{ vpc_output.vpcs[0].id }}"
+            region: "{{ vpc_aws_region }}"
+            state: absent
+          with_items: "{{ subnet }}"
+      when: subnet is defined
+
+    - name: Query Endpoints
+      ec2_vpc_endpoint_facts:
+        query: endpoints
+        region: "{{ vpc_aws_region }}"
+        filters:
+          vpc-id:
+            - "{{ vpc_output.vpcs[0].id }}"
+      register: endpoints_output
+
+    - name: Destroy VPC Endpoints
+      ec2_vpc_endpoint:
+        vpc_endpoint_id: "{{ item.vpc_endpoint_id }}"
+        region: "{{ vpc_output.vpcs[0].id }}"
+        state: absent
+      with_items: "{{ endpoints_output.vpc_endpoints }}"
+
+    - name: Destroy Internet gateway
+      ec2_vpc_igw:
+        vpc_id: "{{ vpc_output.vpcs[0].id }}"
+        region: "{{ vpc_aws_region }}"
+        state: absent
+
+    - name: Query Route Tables
+      ec2_vpc_route_table_facts:
+        region: "{{ vpc_aws_region }}"
+        filters:
+          vpc-id:
+            - "{{ vpc_output.vpcs[0].id }}"
+      register: route_tables_output
+
+    - name: Destroy all Route Tables
+      ec2_vpc_route_table:
+        vpc_id: "{{ vpc_output.vpcs[0].id }}"
+        region: "{{ vpc_aws_region }}"
+        route_table_id: "{{ item.id }}"
+        lookup: id
+        state: absent
+      with_items: "{{ route_tables_output.route_tables }}"
+      when: item.associations[0] is not defined or item.associations[0].main is not defined or not item.associations[0].main
+
+    - name: Destroy VPC
+      ec2_vpc_net:
+        name: "{{ vpc_name }}"
+        cidr_block: "{{ vpc_cidr_block }}"
+        region: "{{ vpc_aws_region }}"
+        state: absent
+  when: vpc_output.vpcs[0] is defined
+  run_once: true
+...
