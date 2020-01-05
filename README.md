@@ -14,20 +14,21 @@ However, this code should work on other environments such as Fedora and/or Pytho
 
 ## Prerequisites
 
-
+The below prerequisites must be satisfied prior to using this Ansible code.
 
 ### Package Dependencies
 
-
+Install the following Python packages required for the Ansible AWS modules:
 
 ```bash
 pip install boto boto3 --upgrade --user
 ```
 
+_Note: This can alternatively be done via your package manager if `boto3` is available and up to date._
 
 ### AWS Setup
 
-
+A service account must be created with the appropriate permissions in order for Ansible to authenticate against your AWS environment.
 
 Refer to [IAM Users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users.html) for full details.
 
@@ -57,22 +58,24 @@ _Note: Exporting secrets as environment variables is not a good practice. Consid
 
 ## Usage
 
-
+How to use this Ansible code.
 
 ### Create VPC(s)
 
-
+Create all VPCs and their contained resources:
 
 ```bash
 ansible-playbook -i inventories/<env>/hosts sandwich_launcher_vpcs.yml -e "activity=create"
 ```
 
+_Note: This may take several minutes to complete._
+
 ### Destroy VPC(s)
 
-
+Destroy all VPCs and their contained resources:
 
 ```bash
 ansible-playbook -i inventories/<env>/hosts sandwich_launcher_vpcs.yml -e "activity=destroy"
 ```
 
-
+_Note: This will **immediately delete** all VPCs defined in the selected inventory. You will not be prompted to validate._
