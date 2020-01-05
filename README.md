@@ -2,6 +2,16 @@
 
 Example implementation to create/destroy AWS VPCs and their components using Ansible.
 
+## Environment Details
+
+The following instructions are tested and based on:
+
+* RHEL 7
+* Python 2.7.5
+* Ansible 2.7.8
+
+However, this code should work on other environments such as Fedora and/or Python3, and newer versions of Ansible.
+
 ## Prerequisites
 
 
@@ -13,9 +23,6 @@ Example implementation to create/destroy AWS VPCs and their components using Ans
 ```bash
 pip install boto boto3 --upgrade --user
 ```
-
-
-RHEL 7... python 2.7.5 ... ansible 2.7.8
 
 
 ### AWS Setup
